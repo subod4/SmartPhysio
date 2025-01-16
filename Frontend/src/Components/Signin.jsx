@@ -1,12 +1,69 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { FcGoogle } from 'react-icons/fc';
+import { handleError, handleSuccess } from '../Utils.jsx';
 
-function SignIn() {
-  // Function to handle Google Sign-In
+function SignIn({ setIsLoggedIn }) {
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+  });
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const navigate = useNavigate();
+
+  // Handle input change
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  // Handle form submission
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    // Form validation
+    if (!formData.email || !formData.password) {
+      handleError('Please fill in all fields');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      // Send login request to the backend
+      const response = await fetch('http://localhost:8000/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        handleSuccess('Sign In Successful'); // Show success toast
+        localStorage.setItem('jwtToken', result.jwtToken); // Save token
+        setIsLoggedIn(true); // Update isLoggedIn state in App component
+        navigate('/dashboard'); // Redirect to dashboard
+      } else {
+        handleError(result.error || result.message); // Show error toast
+      }
+    } catch (err) {
+      handleError('Something went wrong. Please try again.'); // Show error toast
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Google Sign-In handler
   const handleGoogleSignIn = () => {
-    // Add your Google Sign-In logic here
+    setIsGoogleLoading(true);
     console.log('Signing in with Google...');
+    // Add Google OAuth logic here
+    setIsGoogleLoading(false);
   };
 
   return (
@@ -15,12 +72,14 @@ function SignIn() {
         <h2 className="text-3xl font-bold text-center bg-gradient-to-r from-[#FF6F61] to-[#FFD166] text-transparent bg-clip-text mb-6">
           Sign In
         </h2>
-        <form className="space-y-6">
+        <form className="space-y-6" onSubmit={handleSubmit}>
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-[#555555] dark:text-gray-400">
               Email
             </label>
             <input
+              value={formData.email}
+              onChange={handleChange}
               type="email"
               id="email"
               name="email"
@@ -34,6 +93,8 @@ function SignIn() {
               Password
             </label>
             <input
+              value={formData.password}
+              onChange={handleChange}
               type="password"
               id="password"
               name="password"
@@ -46,8 +107,9 @@ function SignIn() {
             <button
               type="submit"
               className="w-full px-4 py-2 bg-gradient-to-r from-[#FF6F61] to-[#FFD166] text-white font-semibold rounded-lg shadow-md hover:opacity-90 transition duration-300"
+              disabled={isLoading}
             >
-              Sign In
+              {isLoading ? 'Signing In...' : 'Sign In'}
             </button>
           </div>
         </form>
@@ -63,11 +125,11 @@ function SignIn() {
         <button
           onClick={handleGoogleSignIn}
           className="w-full px-4 py-2 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-lg shadow-md flex items-center justify-center space-x-2 hover:bg-neutral-50 dark:hover:bg-neutral-600 transition duration-300"
+          disabled={isGoogleLoading}
         >
-          
-          <FcGoogle className="w-5 h-5" />      
+          <FcGoogle className="w-5 h-5" />
           <span className="text-[#555555] dark:text-gray-200 font-medium">
-            Sign In with Google
+            {isGoogleLoading ? 'Signing In with Google...' : 'Sign In with Google'}
           </span>
         </button>
 

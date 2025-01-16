@@ -1,11 +1,64 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { FcGoogle } from 'react-icons/fc'; // Google icon from react-icons
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { FcGoogle } from 'react-icons/fc';
+import { ToastContainer, toast } from 'react-toastify';
 
 function SignUp() {
-  // Function to handle Google Sign-In
+  const [formData, setFormData] = useState({
+    fullName: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
+
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+
+  // Handle input change
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  // Handle form submission
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const { fullName, email, password, confirmPassword } = formData;
+
+    if (!fullName || !email || !password || !confirmPassword) {
+      return toast.error('All fields are required');
+    }
+
+    if (password !== confirmPassword) {
+      return toast.error('Passwords do not match');
+    }
+
+    try {
+      setIsLoading(true);
+      const response = await fetch(`http://localhost:8000/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: fullName, email, password }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success(result.message);
+        setTimeout(() => navigate('/login'), 1000);
+      } else {
+        toast.error(result.error?.details[0]?.message || result.message);
+      }
+    } catch (err) {
+      toast.error('Something went wrong. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle Google Sign-In
   const handleGoogleSignIn = () => {
-    // Add your Google Sign-In logic here
     console.log('Signing up with Google...');
   };
 
@@ -15,15 +68,17 @@ function SignUp() {
         <h2 className="text-3xl font-bold text-center bg-gradient-to-r from-[#FF6F61] to-[#FFD166] text-transparent bg-clip-text mb-6">
           Sign Up
         </h2>
-        <form className="space-y-6">
+        <form className="space-y-6" onSubmit={handleSubmit}>
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-[#555555] dark:text-gray-400">
+            <label htmlFor="fullName" className="block text-sm font-medium text-[#555555] dark:text-gray-400">
               Full Name
             </label>
             <input
+              value={formData.fullName}
+              onChange={handleChange}
               type="text"
-              id="name"
-              name="name"
+              id="fullName"
+              name="fullName"
               placeholder="Enter your full name"
               className="mt-1 block w-full px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#FF6F61] focus:border-transparent"
               required
@@ -34,6 +89,8 @@ function SignUp() {
               Email
             </label>
             <input
+              value={formData.email}
+              onChange={handleChange}
               type="email"
               id="email"
               name="email"
@@ -47,6 +104,8 @@ function SignUp() {
               Password
             </label>
             <input
+              value={formData.password}
+              onChange={handleChange}
               type="password"
               id="password"
               name="password"
@@ -60,6 +119,8 @@ function SignUp() {
               Confirm Password
             </label>
             <input
+              value={formData.confirmPassword}
+              onChange={handleChange}
               type="password"
               id="confirmPassword"
               name="confirmPassword"
@@ -72,8 +133,9 @@ function SignUp() {
             <button
               type="submit"
               className="w-full px-4 py-2 bg-gradient-to-r from-[#FF6F61] to-[#FFD166] text-white font-semibold rounded-lg shadow-md hover:opacity-90 transition duration-300"
+              disabled={isLoading}
             >
-              Sign Up
+              {isLoading ? 'Signing Up...' : 'Sign Up'}
             </button>
           </div>
         </form>
@@ -90,7 +152,7 @@ function SignUp() {
           onClick={handleGoogleSignIn}
           className="w-full px-4 py-2 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-lg shadow-md flex items-center justify-center space-x-2 hover:bg-neutral-50 dark:hover:bg-neutral-600 transition duration-300"
         >
-          <FcGoogle className="w-5 h-5" /> {/* Google icon from react-icons */}
+          <FcGoogle className="w-5 h-5" />
           <span className="text-[#555555] dark:text-gray-200 font-medium">
             Sign Up with Google
           </span>
@@ -109,6 +171,7 @@ function SignUp() {
           </p>
         </div>
       </div>
+      <ToastContainer />
     </div>
   );
 }

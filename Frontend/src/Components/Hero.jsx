@@ -2,9 +2,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import Exercise1 from '../assets/AIExercise.jpg';
 import Exercise2 from '../assets/AiExercise2.jpg';
 
-function Hero() {
+function Hero({ isLoggedIn }) {
   const navigate = useNavigate();
-  const handlesignup = () => navigate('/signup');
+
+  // Handle navigation to signup
+  const handleSignup = () => navigate('/signup');
+
+  // Handle navigation to dashboard
+  const handleDashboard = () => navigate('/dashboard');
 
   return (
     <div className="relative bg-gradient-to-br from-[#6C9BCF] to-[#F4F4F4] dark:from-[#2E4F4F] dark:to-[#1A1A1A] min-h-screen flex flex-col items-center justify-center p-10">
@@ -18,31 +23,45 @@ function Hero() {
           <h1 className="text-5xl md:text-6xl font-bold leading-tight">
             SmartPhysio{' '}
             <span className="bg-gradient-to-r from-[#FF6F61] to-[#FFD166] text-transparent bg-clip-text">
-              for Faster Recovery
+              {isLoggedIn ? 'Welcome Back!' : 'for Faster Recovery'}
             </span>
           </h1>
           <p className="mt-6 text-lg md:text-xl text-[#555555] dark:text-gray-300">
-            Accelerate your rehabilitation with SmartPhysio’s AI-powered solutions. Get personalized
-            exercise plans, real-time feedback, and track your progress every step of the way. Start
-            your recovery journey with us today!
+            {isLoggedIn
+              ? 'Continue your rehabilitation journey with personalized exercise plans and real-time feedback.'
+              : 'Accelerate your rehabilitation with SmartPhysio’s AI-powered solutions. Get personalized exercise plans, real-time feedback, and track your progress every step of the way. Start your recovery journey with us today!'}
           </p>
 
           {/* Buttons */}
           <div className="mt-8 flex flex-col md:flex-row gap-4 justify-center">
-            <button
-              onClick={handlesignup}
-              className="px-8 py-4 bg-gradient-to-r from-[#FF6F61] to-[#FFD166] text-white font-medium rounded-full shadow-md hover:shadow-lg transition"
-              aria-label="Sign up for SmartPhysio"
-            >
-              Get Started for Free
-            </button>
-            <Link
-              to="/about"
-              className="px-8 py-4 bg-transparent border border-[#6C9BCF] dark:border-[#FFD166] text-[#333333] dark:text-gray-200 font-medium rounded-full shadow-md hover:shadow-lg transition hover:border-[#FF6F61] hover:text-[#FF6F61] dark:hover:border-[#FF6F61] dark:hover:text-[#FF6F61]"
-              aria-label="Learn more about SmartPhysio"
-            >
-              Learn More
-            </Link>
+            {isLoggedIn ? (
+              // Show "Go to Dashboard" button if user is logged in
+              <button
+                onClick={handleDashboard}
+                className="px-8 py-4 bg-gradient-to-r from-[#FF6F61] to-[#FFD166] text-white font-medium rounded-full shadow-md hover:shadow-lg transition"
+                aria-label="Go to Dashboard"
+              >
+                Go to Dashboard
+              </button>
+            ) : (
+              // Show "Get Started" and "Learn More" buttons if user is not logged in
+              <>
+                <button
+                  onClick={handleSignup}
+                  className="px-8 py-4 bg-gradient-to-r from-[#FF6F61] to-[#FFD166] text-white font-medium rounded-full shadow-md hover:shadow-lg transition"
+                  aria-label="Sign up for SmartPhysio"
+                >
+                  Get Started for Free
+                </button>
+                <Link
+                  to="/about"
+                  className="px-8 py-4 bg-transparent border border-[#6C9BCF] dark:border-[#FFD166] text-[#333333] dark:text-gray-200 font-medium rounded-full shadow-md hover:shadow-lg transition hover:border-[#FF6F61] hover:text-[#FF6F61] dark:hover:border-[#FF6F61] dark:hover:text-[#FF6F61]"
+                  aria-label="Learn more about SmartPhysio"
+                >
+                  Learn More
+                </Link>
+              </>
+            )}
           </div>
         </div>
 

@@ -6,7 +6,7 @@ const signup = async (req,res)=>{
     try {
         const{name, email, password} = req.body;
         const user = await UserModel.findOne({email});
-        if (User) {
+        if (user) {
             return res.status(409)
                 .json({message : 'User already exist, you can login', success: false});
         }
@@ -26,7 +26,7 @@ const login = async (req,res)=>{
         const{email, password} = req.body;
         const user = await UserModel.findOne({email});
         const errorMsg = 'Email or Password is wrong';
-        if (!User) {
+        if (!user) {
             return res.status(403)
                 .json({message :errorMsg , success: false});
         }
