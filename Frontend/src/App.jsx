@@ -11,15 +11,16 @@ import SignUp from './Components/Signup.jsx';
 import Exercise from './Components/Exercise.jsx';
 import Chat from './Components/Chat.jsx';
 import Dashboard from './Components/Dashboard.jsx';
+import Bicep from './Exercises/Bicepcurl.jsx';
 
 // Create a Home component that includes Hero, Features, and Pricing
 function Home({ isLoggedIn }) {
   return (
-    <>
+    <div>
       <Hero isLoggedIn={isLoggedIn} />
       <Features />
       <Pricing />
-    </>
+    </div>
   );
 }
 
@@ -51,22 +52,23 @@ function App() {
         <Route path="/pricing" element={<Pricing />} />
 
         {/* Sign In Page */}
-        <Route
-          path="/signin"
-          element={<SignIn setIsLoggedIn={setIsLoggedIn} />}
-        />
+        <Route path="/signin" element={<SignIn setIsLoggedIn={setIsLoggedIn} />} />
 
         {/* Sign Up Page */}
         <Route path="/signup" element={<SignUp />} />
 
         {/* Exercise Page */}
-        <Route path="/exercise" element={<Exercise />} />
+        <Route path="/exercise" element={<Exercise />}>
+          {/* Nested route for individual exercises */}
+          <Route path=":exerciseName" element={<Exercise />} />
+        </Route>
 
         {/* Chat Page */}
         <Route path="/chat" element={<Chat />} />
 
         {/* Dashboard Page */}
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/exercise/bicep-curls" element={<Bicep />} />
       </Routes>
 
       {/* Footer is displayed on all pages */}
