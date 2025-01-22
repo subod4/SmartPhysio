@@ -12,7 +12,18 @@ const ExercisePose = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [timer, setTimer] = useState(0);
   const [repCount, setRepCount] = useState(0);
-  const [stage, setStage] = useState("down"); // Tracks the stage of the curl
+  const [stage, setStage] = useState("down");
+  const [showReport, setShowReport] = useState(false);
+  const [exerciseStats, setExerciseStats] = useState({
+    duration: 0,
+    reps: 0,
+    avgTimePerRep: 0
+  });
+  const stageRef = useRef(stage);
+
+  useEffect(() => {
+    stageRef.current = stage;
+  }, [stage]);
 
   useEffect(() => {
     let cameraInstance;
@@ -103,35 +114,6 @@ const ExercisePose = () => {
     };
   }, [isCameraActive, isPaused]);
 
-  const calculateExercise = (results) => {
-    const landmarks = results.poseLandmarks;
-    const leftWrist = landmarks[15];
-    const rightWrist = landmarks[16];
-  
-    const leftWristVelocity = Math.sqrt(
-      Math.pow(leftWrist.x - prevLeftWrist.x, 2) + Math.pow(leftWrist.y - prevLeftWrist.y, 2)
-    );
-    const rightWristVelocity = Math.sqrt(
-      Math.pow(rightWrist.x - prevRightWrist.x, 2) + Math.pow(rightWrist.y - prevRightWrist.y, 2)
-    );
-  
-    const avgVelocity = (leftWristVelocity + rightWristVelocity) / 2;
-  
-    if (avgVelocity > VELOCITY_THRESHOLD && stage === "up") {
-      setStage("down");
-      setFeedback("Lowering arm.");
-    } else if (avgVelocity > VELOCITY_THRESHOLD && stage === "down") {
-      setStage("up");
-      setRepCount((prev) => prev + 1);
-      setFeedback("Curl completed.");
-    }
-  
-    // Save the current wrist positions for the next frame
-    prevLeftWrist = leftWrist;
-    prevRightWrist = rightWrist;
-  };
-  
-
   const calculateAngle = (a, b, c) => {
     const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
     let angle = Math.abs((radians * 180.0) / Math.PI);
@@ -139,8 +121,44 @@ const ExercisePose = () => {
     return angle;
   };
 
+  const calculateExercise = (results) => {
+    const landmarks = results.poseLandmarks;
+    if (!landmarks) return;
+
+    const rightShoulder = landmarks[12];
+    const rightElbow = landmarks[14];
+    const rightWrist = landmarks[16];
+    const rightHip = landmarks[24];
+
+    if (!rightShoulder || !rightElbow || !rightWrist || !rightHip) return;
+
+    const elbowAngle = calculateAngle(rightShoulder, rightElbow, rightWrist);
+    const upperArmAngle = calculateAngle(rightShoulder, rightElbow, rightHip);
+
+    let newStage = stageRef.current;
+    if (elbowAngle < 90) {
+      newStage = "up";
+    } else if (elbowAngle > 160) {
+      newStage = "down";
+    }
+
+    if (newStage !== stageRef.current) {
+      if (stageRef.current === "up" && newStage === "down") {
+        setRepCount((prev) => prev + 1);
+        setFeedback("Good rep! Keep going.");
+      }
+      setStage(newStage);
+    }
+
+    if (upperArmAngle < 170) {
+      setFeedback("Keep your upper arm stationary. Don't swing!");
+    }
+  };
+
   const drawArmPose = (results, canvasCtx) => {
     const poseLandmarks = results.poseLandmarks;
+    if (!poseLandmarks) return;
+
     const armLandmarks = [11, 13, 15, 12, 14, 16];
 
     canvasCtx.save();
@@ -177,18 +195,35 @@ const ExercisePose = () => {
     setRepCount(0);
     setStage("down");
     setFeedback("Get ready to start!");
+    setShowReport(false);
   };
 
   const handleStopCamera = () => {
     if (camera) {
       camera.stop();
     }
+    
+    // Capture current exercise metrics
+    const currentDuration = timer;
+    const currentReps = repCount;
+    const avgTime = currentReps > 0 ? (currentDuration / currentReps).toFixed(1) : 0;
+    
+    setExerciseStats({
+      duration: currentDuration,
+      reps: currentReps,
+      avgTimePerRep: avgTime
+    });
+
+    // Reset states
     setIsCameraActive(false);
     setIsPaused(false);
     setTimer(0);
     setRepCount(0);
     setStage("down");
-    setFeedback("Exercise stopped. All parameters reset.");
+    setFeedback("Exercise stopped. Showing summary.");
+    
+    // Show report
+    setShowReport(true);
   };
 
   const handlePauseCamera = () => {
@@ -201,20 +236,53 @@ const ExercisePose = () => {
     }
   };
 
+  const ReportModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-neutral-800 p-8 rounded-lg w-96 shadow-2xl">
+        <h2 className="text-3xl font-bold text-[#333333] dark:text-gray-200 mb-6 text-center">
+          Exercise Summary
+        </h2>
+        
+        <div className="space-y-4 mb-6">
+          <div className="flex justify-between">
+            <span className="text-[#555555] dark:text-gray-400">Total Duration:</span>
+            <span className="font-semibold">
+              {exerciseStats.duration} seconds
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-[#555555] dark:text-gray-400">Total Reps:</span>
+            <span className="font-semibold">{exerciseStats.reps}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-[#555555] dark:text-gray-400">Avg Time/Rep:</span>
+            <span className="font-semibold">
+              {exerciseStats.avgTimePerRep}s
+            </span>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setShowReport(false)}
+          className="w-full bg-gradient-to-r from-[#6C9BCF] to-[#FF6F61] text-white py-3 rounded-lg hover:opacity-90 transition duration-300"
+        >
+          Close Report
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#6C9BCF] to-[#F4F4F4] dark:from-[#2E4F4F] dark:to-[#1A1A1A] p-8">
       <h1 className="text-4xl font-bold text-center text-[#333333] dark:text-gray-200 mb-8">Bicep Tracker</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Camera feed with skeleton */}
         <div className="relative w-full h-[480px] rounded-lg overflow-hidden shadow-xl">
           <video ref={videoRef} className="absolute w-full h-full z-10" playsInline />
           <canvas ref={canvasRef} className="absolute w-full h-full z-20" width="640" height="480" />
         </div>
 
-        {/* Right side: Recommended card and tutorial video */}
         <div className="space-y-6">
-          {/* Recommended Card */}
           <div className="bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700">
             <h2 className="text-2xl font-bold text-[#333333] dark:text-gray-200 mb-4">Recommended</h2>
             <div className="space-y-2">
@@ -252,13 +320,14 @@ const ExercisePose = () => {
             </div>
           </div>
 
-          {/* Tutorial Video */}
           <div className="bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700">
             <h2 className="text-2xl font-bold text-[#333333] dark:text-gray-200 mb-4">Tutorial Video</h2>
             <video controls src={bicep} className="w-full rounded-lg shadow-md" />
           </div>
         </div>
       </div>
+
+      {showReport && <ReportModal />}
     </div>
   );
 };
