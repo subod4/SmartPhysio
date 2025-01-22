@@ -30,6 +30,7 @@ function SignIn({ setIsLoggedIn }) {
       handleError('Please fill in all fields');
       return;
     }
+    
 
     try {
       setIsLoading(true);

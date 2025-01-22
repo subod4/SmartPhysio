@@ -98,7 +98,7 @@ const Exercise = () => {
     return (
         <div className="min-h-screen bg-gradient-to-br from-[#6C9BCF] to-[#F4F4F4] dark:from-[#2E4F4F] dark:to-[#1A1A1A] py-8">
             <div className="container mx-auto px-4">
-                <h1 className="text-4xl font-bold text-center text-[#333333] dark:text-gray-200 mb-8">
+                <h1 className="text-4xl font-bold text-center text-[#333333] dark:text-gray-200  mt-16 mb-8">
                     SmartPhysio Exercise Guide
                 </h1>
 

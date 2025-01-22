@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Pose } from "@mediapipe/pose";
 import * as cam from "@mediapipe/camera_utils";
 import bicep from "/bicep.mp4";
@@ -6,6 +7,7 @@ import bicep from "/bicep.mp4";
 const ExercisePose = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const navigate = useNavigate();
   const [feedback, setFeedback] = useState("Press Start to begin");
   const [camera, setCamera] = useState(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -19,6 +21,9 @@ const ExercisePose = () => {
     reps: 0,
     avgTimePerRep: 0
   });
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+  const [isSaved, setIsSaved] = useState(false);
   const stageRef = useRef(stage);
 
   useEffect(() => {
@@ -198,32 +203,75 @@ const ExercisePose = () => {
     setShowReport(false);
   };
 
-  const handleStopCamera = () => {
-    if (camera) {
-      camera.stop();
-    }
-    
-    // Capture current exercise metrics
-    const currentDuration = timer;
-    const currentReps = repCount;
-    const avgTime = currentReps > 0 ? (currentDuration / currentReps).toFixed(1) : 0;
-    
-    setExerciseStats({
-      duration: currentDuration,
-      reps: currentReps,
-      avgTimePerRep: avgTime
-    });
+  const handleStopCamera = async () => {
+    try {
+      if (camera) camera.stop();
+      
+      // Check authentication
+      const token = localStorage.getItem('jwtToken');
+      if (!token) {
+        setSaveError('Please login to save your session');
+        navigate('/login');
+        return;
+      }
 
-    // Reset states
-    setIsCameraActive(false);
-    setIsPaused(false);
-    setTimer(0);
-    setRepCount(0);
-    setStage("down");
-    setFeedback("Exercise stopped. Showing summary.");
-    
-    // Show report
-    setShowReport(true);
+      const currentDuration = timer;
+      const currentReps = repCount;
+      const avgTime = currentReps > 0 ? (currentDuration / currentReps).toFixed(1) : 0;
+      
+      const sessionData = {
+        duration: currentDuration,
+        reps: currentReps,
+        avgTimePerRep: avgTime,
+        exerciseType: 'bicep_curl'
+      };
+
+      setExerciseStats(sessionData);
+      setShowReport(true);
+
+      setIsSaving(true);
+      
+      const response = await fetch('http://localhost:8000/exercise/session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(sessionData)
+      });
+
+      // Handle 401 Unauthorized
+      if (response.status === 401) {
+        localStorage.removeItem('jwtToken');
+        navigate('/login');
+        return;
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save session');
+      }
+
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 3000);
+    } catch (error) {
+      setSaveError(error.message);
+      console.error('Save error:', error);
+      
+      // Handle token expiration
+      if (error.message.includes('expired') || error.message.includes('invalid')) {
+        localStorage.removeItem('jwtToken');
+        navigate('/login');
+      }
+    } finally {
+      setIsSaving(false);
+      setIsCameraActive(false);
+      setIsPaused(false);
+      setTimer(0);
+      setRepCount(0);
+      setStage("down");
+      setFeedback("Exercise stopped. Showing summary.");
+    }
   };
 
   const handlePauseCamera = () => {
@@ -242,7 +290,23 @@ const ExercisePose = () => {
         <h2 className="text-3xl font-bold text-[#333333] dark:text-gray-200 mb-6 text-center">
           Exercise Summary
         </h2>
-        
+
+        {isSaving && (
+          <div className="mb-4 p-3 bg-blue-100 text-blue-800 rounded-lg">
+            Saving session...
+          </div>
+        )}
+        {isSaved && (
+          <div className="mb-4 p-3 bg-green-100 text-green-800 rounded-lg">
+            Session saved successfully!
+          </div>
+        )}
+        {saveError && (
+          <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-lg">
+            Error saving: {saveError}
+          </div>
+        )}
+
         <div className="space-y-4 mb-6">
           <div className="flex justify-between">
             <span className="text-[#555555] dark:text-gray-400">Total Duration:</span>

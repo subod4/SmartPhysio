@@ -6,7 +6,7 @@ function About() {
     <div className="bg-gradient-to-br from-[#6C9BCF] to-[#F4F4F4] dark:from-[#2E4F4F] dark:to-[#1A1A1A] min-h-screen py-20 ">
       <div className="container mx-auto px-6">
         {/* Section Title */}
-        <h2 className="text-4xl sm:text-5xl lg:text-6xl text-center font-bold text-[#333333] dark:text-gray-200 mb-12">
+        <h2 className="text-4xl sm:text-5xl lg:text-6xl text-center font-bold text-[#333333] dark:text-gray-200 mt-16 mb-12">
           About <span className="bg-gradient-to-r from-[#FF6F61] to-[#FFD166] text-transparent bg-clip-text">SmartPhysio</span>
         </h2>
 

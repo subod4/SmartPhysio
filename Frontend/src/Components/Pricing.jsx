@@ -2,10 +2,10 @@ import React from 'react';
 
 function Pricing() {
   return (
-    <div id="pricing" className="bg-gradient-to-br from-[#6C9BCF] to-[#F4F4F4] dark:from-[#2E4F4F] dark:to-[#1A1A1A] py-16">
+    <div id="pricing" className="bg-gradient-to-br from-[#6C9BCF] to-[#F4F4F4] dark:from-[#2E4F4F] dark:to-[#1A1A1A]  py-16">
       <div className="container mx-auto px-6 text-center">
         {/* Section Title */}
-        <h2 className="text-3xl sm:text-5xl lg:text-6xl text-center tracking-wide text-[#333333] dark:text-gray-200">
+        <h2 className="text-3xl sm:text-5xl lg:text-6xl text-center tracking-wide text-[#333333] dark:text-gray-200 mt-16 mb-8">
           Pricing
         </h2>
 
