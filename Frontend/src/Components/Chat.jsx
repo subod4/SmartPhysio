@@ -12,6 +12,7 @@ const Chat = () => {
     });
     const [exercises, setExercises] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
     const navigate = useNavigate();
 
     const steps = [
@@ -27,37 +28,80 @@ const Chat = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
-        setTimeout(() => {
-            setExercises([
-                { 
-                    name: "Wrist Flexor Stretch", 
-                    description: "3 sets of 15-second holds daily",
-                    type: "rehab",
-                    duration: "2 weeks"
+
+        try {
+            const response = await fetch('http://localhost:5000/api/suggest-exercises', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
                 },
-                { 
-                    name: "Resistance Band Training", 
-                    description: "10-15 reps with light resistance",
-                    type: "strength",
-                    duration: "3 weeks"
-                }
-            ]);
+                body: JSON.stringify({
+                    message: formData.details,
+                    user_id: '123', // Replace with actual user ID from auth system
+                    injuryType: formData.injuryType,
+                    duration: formData.duration,
+                    severity: formData.severity
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch recommendations');
+            }
+
+            const data = await response.json();
+            setExercises(data.exercises);
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Failed to fetch recommendations. Please try again.');
+        } finally {
             setLoading(false);
-        }, 2000);
+        }
     };
 
-    const handleAccept = () => navigate('/dashboard');
+    const handleAccept = async () => {
+        setSaving(true);
+        try {
+            const response = await fetch('http://localhost:5000/api/recommendations/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+                },
+                body: JSON.stringify({
+                    user_id: '123', // Replace with actual user ID
+                    injuryDetails: formData,
+                    exercises: exercises,
+                    acceptanceDate: new Date().toISOString()
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to save recommendation');
+            }
+
+            const result = await response.json();
+            console.log('Recommendation saved:', result);
+            navigate('/dashboard');
+        } catch (error) {
+            console.error('Save Error:', error);
+            alert('Failed to save recommendation. Please try again.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const handleReject = () => setExercises([]);
 
     const getStepContent = (step) => {
-        switch(step) {
+        switch (step) {
             case 1: return (
                 <input
                     type="text"
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#6C9BCF] focus:border-transparent"
                     placeholder="e.g., Sprained ankle, Tennis elbow"
                     value={formData.injuryType}
-                    onChange={(e) => setFormData({...formData, injuryType: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, injuryType: e.target.value })}
                 />
             );
             case 2: return (
@@ -66,7 +110,7 @@ const Chat = () => {
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#6C9BCF] focus:border-transparent"
                     placeholder="e.g., 1 week, 3 months"
                     value={formData.duration}
-                    onChange={(e) => setFormData({...formData, duration: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
                 />
             );
             case 3: return (
@@ -76,11 +120,11 @@ const Chat = () => {
                             key={level}
                             type="button"
                             className={`py-2 rounded-lg border ${
-                                formData.severity === level 
-                                ? 'bg-gradient-to-r from-[#FF6F61] to-[#FFD166] text-white border-transparent'
-                                : 'border-[#6C9BCF] text-gray-600 dark:text-gray-300 hover:bg-gray-50'
+                                formData.severity === level
+                                    ? 'bg-gradient-to-r from-[#FF6F61] to-[#FFD166] text-white border-transparent'
+                                    : 'border-[#6C9BCF] text-gray-600 dark:text-gray-300 hover:bg-gray-50'
                             }`}
-                            onClick={() => setFormData({...formData, severity: level})}
+                            onClick={() => setFormData({ ...formData, severity: level })}
                         >
                             {level}
                         </button>
@@ -93,7 +137,7 @@ const Chat = () => {
                     rows={4}
                     placeholder="Describe your pain, previous treatments, etc."
                     value={formData.details}
-                    onChange={(e) => setFormData({...formData, details: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, details: e.target.value })}
                 />
             );
             default: return null;
@@ -102,7 +146,7 @@ const Chat = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-[#6C9BCF] to-[#F4F4F4] dark:from-[#2E4F4F] dark:to-[#1A1A1A] p-4 sm:p-8">
-            <motion.div 
+            <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="max-w-3xl mx-auto bg-white dark:bg-neutral-800 rounded-2xl shadow-xl overflow-hidden mt-20 mb-8"
@@ -110,7 +154,7 @@ const Chat = () => {
                 {/* Header */}
                 <div className="p-6 bg-gradient-to-r from-[#FF6F61] to-[#FFD166]">
                     <div className="flex items-center gap-4">
-                        <motion.div 
+                        <motion.div
                             animate={{ y: [0, -5, 0] }}
                             transition={{ repeat: Infinity, duration: 2 }}
                         >
@@ -144,7 +188,7 @@ const Chat = () => {
                 <div className="p-6">
                     {!exercises.length ? (
                         <form onSubmit={handleSubmit}>
-                            <motion.div 
+                            <motion.div
                                 key={currentStep}
                                 initial={{ opacity: 0, x: 20 }}
                                 animate={{ opacity: 1, x: 0 }}
@@ -153,7 +197,7 @@ const Chat = () => {
                                 <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
                                     {steps[currentStep - 1].label}
                                 </h2>
-                                
+
                                 {getStepContent(currentStep)}
 
                                 <div className="flex justify-between">
@@ -196,7 +240,7 @@ const Chat = () => {
                                 </h2>
                                 <div className="flex justify-center gap-4 mt-2 text-sm">
                                     <span className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full">
-                                        Estimated Recovery: {exercises[0]?.duration}
+                                        Estimated Recovery: 2-4 weeks
                                     </span>
                                     <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full">
                                         AI Confidence: 92%
@@ -206,7 +250,7 @@ const Chat = () => {
 
                             <div className="grid gap-4 md:grid-cols-2">
                                 {exercises.map((exercise, index) => (
-                                    <div 
+                                    <div
                                         key={index}
                                         className="bg-gray-50 dark:bg-neutral-700 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow"
                                     >
@@ -223,10 +267,10 @@ const Chat = () => {
                                         </p>
                                         <div className="mt-3 flex gap-2">
                                             <span className="px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded-full">
-                                                {exercise.type}
+                                                Rehab
                                             </span>
                                             <span className="px-2 py-1 bg-purple-100 text-purple-800 text-sm rounded-full">
-                                                {exercise.duration}
+                                                2-4 weeks
                                             </span>
                                         </div>
                                     </div>
@@ -236,10 +280,20 @@ const Chat = () => {
                             <div className="mt-6 grid gap-4 sm:grid-cols-2">
                                 <button
                                     onClick={handleAccept}
-                                    className="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center"
+                                    disabled={saving}
+                                    className="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center disabled:opacity-75"
                                 >
-                                    <span className="mr-2">✅</span>
-                                    Accept Plan
+                                    {saving ? (
+                                        <>
+                                            <span className="mr-2">⏳</span>
+                                            Saving...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="mr-2">✅</span>
+                                            Accept Plan
+                                        </>
+                                    )}
                                 </button>
                                 <button
                                     onClick={handleReject}
