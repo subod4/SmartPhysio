@@ -5,6 +5,7 @@ import * as cam from "@mediapipe/camera_utils";
 import bicep from "/bicep.mp4";
 
 const ExercisePose = () => {
+  // Refs and state management
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const navigate = useNavigate();
@@ -26,16 +27,19 @@ const ExercisePose = () => {
   const [isSaved, setIsSaved] = useState(false);
   const stageRef = useRef(stage);
 
+  // Track stage changes
   useEffect(() => {
     stageRef.current = stage;
   }, [stage]);
 
+  // Mediapipe initialization
   useEffect(() => {
     let cameraInstance;
     let timerInterval;
 
     const loadPoseLibrary = async () => {
       try {
+        // Dynamic script loading
         const poseScript = document.createElement("script");
         poseScript.src = "https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js";
         poseScript.async = true;
@@ -96,97 +100,110 @@ const ExercisePose = () => {
           };
         };
 
-        poseScript.onerror = () => {
-          setFeedback("Failed to load Mediapipe Pose library");
-        };
-
-        cameraScript.onerror = () => {
-          setFeedback("Failed to load Mediapipe Camera library");
-        };
+        // Error handling for script loading
+        poseScript.onerror = () => setFeedback("Failed to load Mediapipe Pose library");
+        cameraScript.onerror = () => setFeedback("Failed to load Mediapipe Camera library");
       } catch (error) {
-        console.error("Error loading the Mediapipe Pose library:", error);
-        setFeedback(error?.message || "Error initializing Pose detection.");
+        console.error("Error loading Mediapipe:", error);
+        setFeedback(error?.message || "Pose detection initialization failed");
       }
     };
 
     loadPoseLibrary();
 
     return () => {
-      if (cameraInstance) {
-        cameraInstance.stop();
-      }
+      if (cameraInstance) cameraInstance.stop();
       clearInterval(timerInterval);
     };
   }, [isCameraActive, isPaused]);
 
+  // Angle calculation utility
   const calculateAngle = (a, b, c) => {
     const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
     let angle = Math.abs((radians * 180.0) / Math.PI);
-    if (angle > 180) angle = 360 - angle;
-    return angle;
+    return angle > 180 ? 360 - angle : angle;
   };
 
+  // Exercise analysis logic
   const calculateExercise = (results) => {
     const landmarks = results.poseLandmarks;
     if (!landmarks) return;
 
-    const rightShoulder = landmarks[12];
-    const rightElbow = landmarks[14];
-    const rightWrist = landmarks[16];
-    const rightHip = landmarks[24];
+    // Landmark indices for right arm
+    const [rs, re, rw, rh] = [12, 14, 16, 24].map(i => landmarks[i]);
+    if (!rs || !re || !rw || !rh) return;
 
-    if (!rightShoulder || !rightElbow || !rightWrist || !rightHip) return;
+    const elbowAngle = calculateAngle(rs, re, rw);
+    const upperArmAngle = calculateAngle(rs, re, rh);
 
-    const elbowAngle = calculateAngle(rightShoulder, rightElbow, rightWrist);
-    const upperArmAngle = calculateAngle(rightShoulder, rightElbow, rightHip);
-
+    // Stage detection
     let newStage = stageRef.current;
-    if (elbowAngle < 90) {
-      newStage = "up";
-    } else if (elbowAngle > 160) {
-      newStage = "down";
-    }
+    if (elbowAngle < 90) newStage = "up";
+    else if (elbowAngle > 160) newStage = "down";
 
+    // Rep counting
     if (newStage !== stageRef.current) {
       if (stageRef.current === "up" && newStage === "down") {
-        setRepCount((prev) => prev + 1);
-        setFeedback("Good rep! Keep going.");
+        setRepCount(prev => prev + 1);
       }
       setStage(newStage);
     }
 
-    if (upperArmAngle < 170) {
-      setFeedback("Keep your upper arm stationary. Don't swing!");
+    // Feedback system
+    if (upperArmAngle < 150) {
+      setFeedback("❗ Keep upper arm still! No swinging!");
+    } else if (upperArmAngle < 170) {
+      setFeedback("⚠️ Maintain upper arm position!");
+    } else {
+      if (stageRef.current === "up") {
+        if (elbowAngle < 45) setFeedback("🎯 Perfect form! Maintain!");
+        else if (elbowAngle < 70) setFeedback("💪 Good, aim higher!");
+        else setFeedback("↗️ Curl higher to shoulder!");
+      } else {
+        if (elbowAngle > 175) setFeedback("✅ Full extension! Good!");
+        else if (elbowAngle > 160) setFeedback("↘️ Extend fully!");
+      }
+    }
+
+    // Rep completion feedback
+    if (stageRef.current === "up" && newStage === "down") {
+      setFeedback("🔥 Good rep! Controlled movement!");
     }
   };
 
+  // Pose drawing utilities
   const drawArmPose = (results, canvasCtx) => {
-    const poseLandmarks = results.poseLandmarks;
-    if (!poseLandmarks) return;
-
-    const armLandmarks = [11, 13, 15, 12, 14, 16];
+    const landmarks = results.poseLandmarks;
+    if (!landmarks) return;
 
     canvasCtx.save();
     canvasCtx.lineWidth = 4;
     canvasCtx.strokeStyle = "lime";
 
+    // Draw arm lines
     const drawLine = (start, end) => {
       canvasCtx.beginPath();
-      canvasCtx.moveTo(poseLandmarks[start].x * 640, poseLandmarks[start].y * 480);
-      canvasCtx.lineTo(poseLandmarks[end].x * 640, poseLandmarks[end].y * 480);
+      canvasCtx.moveTo(landmarks[start].x * 640, landmarks[start].y * 480);
+      canvasCtx.lineTo(landmarks[end].x * 640, landmarks[end].y * 480);
       canvasCtx.stroke();
     };
 
-    drawLine(11, 13);
-    drawLine(13, 15);
+    // Right arm connections
     drawLine(12, 14);
     drawLine(14, 16);
+    
+    // Left arm connections
+    drawLine(11, 13);
+    drawLine(13, 15);
+
+    // Shoulder connection
     drawLine(11, 12);
 
-    armLandmarks.forEach((index) => {
-      const landmark = poseLandmarks[index];
+    // Draw landmarks
+    [11, 12, 13, 14, 15, 16].forEach(index => {
+      const lm = landmarks[index];
       canvasCtx.beginPath();
-      canvasCtx.arc(landmark.x * 640, landmark.y * 480, 5, 0, 2 * Math.PI);
+      canvasCtx.arc(lm.x * 640, lm.y * 480, 5, 0, 2 * Math.PI);
       canvasCtx.fillStyle = "aqua";
       canvasCtx.fill();
     });
@@ -194,6 +211,7 @@ const ExercisePose = () => {
     canvasCtx.restore();
   };
 
+  // Camera controls
   const handleStartCamera = () => {
     setIsCameraActive(true);
     setTimer(0);
@@ -207,30 +225,26 @@ const ExercisePose = () => {
     try {
       if (camera) camera.stop();
       
-      // Check authentication
+      // Save exercise session
       const token = localStorage.getItem('jwtToken');
       if (!token) {
-        setSaveError('Please login to save your session');
+        setSaveError('Authentication required');
         navigate('/login');
         return;
       }
 
-      const currentDuration = timer;
-      const currentReps = repCount;
-      const avgTime = currentReps > 0 ? (currentDuration / currentReps).toFixed(1) : 0;
-      
       const sessionData = {
-        duration: currentDuration,
-        reps: currentReps,
-        avgTimePerRep: avgTime,
+        duration: timer,
+        reps: repCount,
+        avgTimePerRep: repCount > 0 ? (timer / repCount).toFixed(1) : 0,
         exerciseType: 'bicep_curl'
       };
 
       setExerciseStats(sessionData);
       setShowReport(true);
 
+      // API call
       setIsSaving(true);
-      
       const response = await fetch('http://localhost:8000/exercise/session', {
         method: 'POST',
         headers: {
@@ -240,26 +254,12 @@ const ExercisePose = () => {
         body: JSON.stringify(sessionData)
       });
 
-      // Handle 401 Unauthorized
-      if (response.status === 401) {
-        localStorage.removeItem('jwtToken');
-        navigate('/login');
-        return;
-      }
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save session');
-      }
-
+      if (!response.ok) throw new Error(await response.text());
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 3000);
     } catch (error) {
       setSaveError(error.message);
-      console.error('Save error:', error);
-      
-      // Handle token expiration
-      if (error.message.includes('expired') || error.message.includes('invalid')) {
+      if (error.message.includes('auth')) {
         localStorage.removeItem('jwtToken');
         navigate('/login');
       }
@@ -267,23 +267,16 @@ const ExercisePose = () => {
       setIsSaving(false);
       setIsCameraActive(false);
       setIsPaused(false);
-      setTimer(0);
-      setRepCount(0);
-      setStage("down");
-      setFeedback("Exercise stopped. Showing summary.");
+      setFeedback("Session saved. Review summary below.");
     }
   };
 
   const handlePauseCamera = () => {
-    const newPauseState = !isPaused;
-    setIsPaused(newPauseState);
-    setFeedback(newPauseState ? "Paused. Resume to continue." : "Resumed!");
-
-    if (!newPauseState && camera) {
-      camera.start();
-    }
+    setIsPaused(!isPaused);
+    setFeedback(isPaused ? "Resuming..." : "Paused...");
   };
 
+  // Report modal component
   const ReportModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-neutral-800 p-8 rounded-lg w-96 shadow-2xl">
@@ -291,39 +284,14 @@ const ExercisePose = () => {
           Exercise Summary
         </h2>
 
-        {isSaving && (
-          <div className="mb-4 p-3 bg-blue-100 text-blue-800 rounded-lg">
-            Saving session...
-          </div>
-        )}
-        {isSaved && (
-          <div className="mb-4 p-3 bg-green-100 text-green-800 rounded-lg">
-            Session saved successfully!
-          </div>
-        )}
-        {saveError && (
-          <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-lg">
-            Error saving: {saveError}
-          </div>
-        )}
+        {isSaving && <div className="mb-4 p-3 bg-blue-100 text-blue-800 rounded-lg">Saving...</div>}
+        {isSaved && <div className="mb-4 p-3 bg-green-100 text-green-800 rounded-lg">Saved!</div>}
+        {saveError && <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-lg">Error: {saveError}</div>}
 
         <div className="space-y-4 mb-6">
-          <div className="flex justify-between">
-            <span className="text-[#555555] dark:text-gray-400">Total Duration:</span>
-            <span className="font-semibold">
-              {exerciseStats.duration} seconds
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-[#555555] dark:text-gray-400">Total Reps:</span>
-            <span className="font-semibold">{exerciseStats.reps}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-[#555555] dark:text-gray-400">Avg Time/Rep:</span>
-            <span className="font-semibold">
-              {exerciseStats.avgTimePerRep}s
-            </span>
-          </div>
+          <StatItem label="Duration" value={`${exerciseStats.duration}s`} />
+          <StatItem label="Reps Completed" value={exerciseStats.reps} />
+          <StatItem label="Avg Time/Rep" value={`${exerciseStats.avgTimePerRep}s`} />
         </div>
 
         <button
@@ -336,57 +304,72 @@ const ExercisePose = () => {
     </div>
   );
 
+  // Stat item component
+  const StatItem = ({ label, value }) => (
+    <div className="flex justify-between">
+      <span className="text-[#555555] dark:text-gray-400">{label}:</span>
+      <span className="font-semibold">{value}</span>
+    </div>
+  );
+
+  // Main component render
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#6C9BCF] to-[#F4F4F4] dark:from-[#2E4F4F] dark:to-[#1A1A1A] p-8">
-      <h1 className="text-4xl font-bold text-center text-[#333333] dark:text-gray-200 mb-8">Bicep Tracker</h1>
+      <h1 className="text-4xl font-bold text-center text-[#333333] dark:text-gray-200 mb-8">
+        AI Bicep Curl Coach
+      </h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="relative w-full h-[480px] rounded-lg overflow-hidden shadow-xl">
-          <video ref={videoRef} className="absolute w-full h-full z-10" playsInline />
+        {/* Video Feed Section */}
+        <div className="relative w-full h-[480px] rounded-lg overflow-hidden shadow-xl bg-black">
+          <video ref={videoRef} className="absolute w-full h-full object-cover" playsInline />
           <canvas ref={canvasRef} className="absolute w-full h-full z-20" width="640" height="480" />
         </div>
 
+        {/* Control Panel */}
         <div className="space-y-6">
           <div className="bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700">
-            <h2 className="text-2xl font-bold text-[#333333] dark:text-gray-200 mb-4">Recommended</h2>
-            <div className="space-y-2">
-              <p className="text-[#555555] dark:text-gray-400">Difficulty: <span className="font-semibold">Easy</span></p>
-              <p className="text-[#555555] dark:text-gray-400">Duration: <span className="font-semibold">{timer} seconds</span></p>
-              <p className="text-[#555555] dark:text-gray-400">Reps: <span className="font-semibold">{repCount}</span></p>
+            <h2 className="text-2xl font-bold text-[#333333] dark:text-gray-200 mb-4">Live Stats</h2>
+            
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <StatItem label="Timer" value={`${timer}s`} />
+              <StatItem label="Reps" value={repCount} />
+              <StatItem label="Current Stage" value={stage.toUpperCase()} />
+              <StatItem label="Form Quality" value={feedback.includes("❗") ? "POOR" : feedback.includes("⚠️") ? "FAIR" : "GOOD"} />
             </div>
-            <div className="mt-6 p-4 bg-gray-100 dark:bg-neutral-700 rounded-lg">
-              <p className="text-[#555555] dark:text-gray-300 font-medium">Feedback: <span className="text-[#FF6F61] dark:text-[#FFD166]">{feedback}</span></p>
+
+            <div className="p-4 bg-gray-100 dark:bg-neutral-700 rounded-lg">
+              <p className="text-center text-[#555555] dark:text-gray-300 font-medium">
+                Real-time Feedback: <span className="text-[#FF6F61] dark:text-[#FFD166]">{feedback}</span>
+              </p>
             </div>
-            <div className="mt-6 flex space-x-4">
-              <button
+
+            <div className="mt-6 flex space-x-4 justify-center">
+              <ControlButton
                 onClick={handleStartCamera}
-                className="bg-gradient-to-r from-[#FF6F61] to-[#FFD166] text-white px-6 py-2 rounded-lg hover:opacity-90 transition duration-300 disabled:opacity-50"
                 disabled={isCameraActive}
-              >
-                Start
-              </button>
-              <button
+                colors="from-[#FF6F61] to-[#FFD166]"
+                label="Start"
+              />
+              <ControlButton
                 onClick={handlePauseCamera}
-                className={`bg-gradient-to-r from-[#FFD166] to-[#6C9BCF] text-white px-6 py-2 rounded-lg hover:opacity-90 transition duration-300 ${
-                  isCameraActive ? "inline-block" : "hidden"
-                }`}
-              >
-                {isPaused ? "Resume" : "Pause"}
-              </button>
-              <button
+                visible={isCameraActive}
+                colors="from-[#FFD166] to-[#6C9BCF]"
+                label={isPaused ? "Resume" : "Pause"}
+              />
+              <ControlButton
                 onClick={handleStopCamera}
-                className={`bg-gradient-to-r from-[#6C9BCF] to-[#FF6F61] text-white px-6 py-2 rounded-lg hover:opacity-90 transition duration-300 ${
-                  isCameraActive || isPaused ? "inline-block" : "hidden"
-                }`}
-              >
-                Stop
-              </button>
+                visible={isCameraActive || isPaused}
+                colors="from-[#6C9BCF] to-[#FF6F61]"
+                label="Stop"
+              />
             </div>
           </div>
 
+          {/* Tutorial Section */}
           <div className="bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700">
-            <h2 className="text-2xl font-bold text-[#333333] dark:text-gray-200 mb-4">Tutorial Video</h2>
-            <video controls src={bicep} className="w-full rounded-lg shadow-md" />
+            <h2 className="text-2xl font-bold text-[#333333] dark:text-gray-200 mb-4">Proper Form Tutorial</h2>
+            <video controls src={bicep} className="w-full rounded-lg shadow-md aspect-video" />
           </div>
         </div>
       </div>
@@ -395,5 +378,18 @@ const ExercisePose = () => {
     </div>
   );
 };
+
+// Reusable control button component
+const ControlButton = ({ onClick, disabled, visible = true, colors, label }) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    className={`bg-gradient-to-r ${colors} text-white px-6 py-2 rounded-lg hover:opacity-90 transition duration-300 ${
+      visible ? "inline-block" : "hidden"
+    }`}
+  >
+    {label}
+  </button>
+);
 
 export default ExercisePose;
