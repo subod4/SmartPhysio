@@ -23,7 +23,15 @@ const exerciseSessionSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  date: {
+  energy: {
+    type: Number,
+    required: true // Add energy field
+  },
+  formScore: {
+    type: Number,
+    required: true // Add formScore field
+  },
+  timestamp: { // Rename 'date' to 'timestamp' for consistency
     type: Date,
     default: Date.now
   }

@@ -12,7 +12,7 @@ const Dashboard = () => {
       try {
         const token = localStorage.getItem('jwtToken');
         if (!token) {
-          navigate('/login');
+          navigate('/signin');
           return;
         }
 
@@ -52,10 +52,17 @@ const Dashboard = () => {
     return new Date(dateString).toLocaleDateString('en-US', options);
   };
 
-  const getPerformanceColor = (avgTime) => {
-    if (avgTime < 5) return 'text-green-600';
-    if (avgTime < 8) return 'text-yellow-600';
+  const getPerformanceColor = (formScore) => {
+    if (formScore >= 80) return 'text-green-600';
+    if (formScore >= 60) return 'text-yellow-600';
     return 'text-red-600';
+  };
+
+  const getPerformanceLabel = (formScore) => {
+    if (formScore >= 80) return 'Excellent';
+    if (formScore >= 60) return 'Good';
+    if (formScore >= 40) return 'Fair';
+    return 'Poor';
   };
 
   return (
@@ -90,39 +97,24 @@ const Dashboard = () => {
                     {session.exerciseType.replace(/_/g, ' ').toUpperCase()}
                   </h3>
                   <span className="text-sm text-[#555555] dark:text-gray-400">
-                    {formatDate(session.date)}
+                    {formatDate(session.timestamp)}
                   </span>
                 </div>
 
                 <div className="space-y-3 mb-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#555555] dark:text-gray-400">Duration:</span>
-                    <span className="font-semibold text-[#333333] dark:text-gray-200">
-                      {session.duration}s
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#555555] dark:text-gray-400">Total Reps:</span>
-                    <span className="font-semibold text-[#333333] dark:text-gray-200">
-                      {session.reps}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#555555] dark:text-gray-400">Avg Time/Rep:</span>
-                    <span className={`font-semibold ${getPerformanceColor(session.avgTimePerRep)}`}>
-                      {session.avgTimePerRep}s
-                    </span>
-                  </div>
+                  <StatItem label="Duration" value={`${session.duration}s`} />
+                  <StatItem label="Total Reps" value={session.reps} />
+                  <StatItem label="Avg Time/Rep" value={`${session.avgTimePerRep}s`} />
+                  <StatItem label="Energy" value={`${session.energy} J`} />
+                  <StatItem label="Form Score" value={`${session.formScore}%`} />
                 </div>
 
                 <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-[#555555] dark:text-gray-400">Performance:</span>
-                    <span className={`font-medium ${getPerformanceColor(session.avgTimePerRep)}`}>
-                      {session.avgTimePerRep < 5 ? 'Excellent' : 
-                       session.avgTimePerRep < 8 ? 'Good' : 'Needs Improvement'}
-                    </span>
-                  </div>
+                  <StatItem 
+                    label="Performance" 
+                    value={getPerformanceLabel(session.formScore)} 
+                    className={getPerformanceColor(session.formScore)} 
+                  />
                 </div>
               </div>
             ))}
@@ -147,5 +139,12 @@ const Dashboard = () => {
     </div>
   );
 };
+
+const StatItem = ({ label, value, className = "text-[#333333] dark:text-gray-200" }) => (
+  <div className="flex justify-between items-center">
+    <span className="text-[#555555] dark:text-gray-400">{label}:</span>
+    <span className={`font-semibold ${className}`}>{value}</span>
+  </div>
+);
 
 export default Dashboard;

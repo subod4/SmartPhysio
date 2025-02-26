@@ -46,7 +46,7 @@ function SignUp() {
       const result = await response.json();
       if (result.success) {
         toast.success(result.message);
-        setTimeout(() => navigate('/login'), 1000);
+        setTimeout(() => navigate('/signin'), 1000);
       } else {
         toast.error(result.error?.details[0]?.message || result.message);
       }

@@ -9,7 +9,7 @@ load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})  # Allow all origins (update for production)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Configure Gemini API
 gemini_api_key = os.getenv("GEMINI_API_KEY")
@@ -17,7 +17,7 @@ if not gemini_api_key:
     raise ValueError("GEMINI_API_KEY environment variable is not set.")
 genai.configure(api_key=gemini_api_key)
 
-# List of full-body physiotherapy exercises and their descriptions
+# List of full-body physiotherapy exercises and their descriptions (unchanged)
 exercise_details = {
     'Push-ups': 'An exercise to strengthen the upper body, particularly the chest and triceps.',
     'Squats': 'A lower body exercise that targets the thighs, hips, and buttocks.',
@@ -52,18 +52,36 @@ exercise_details = {
     'Pigeon Pose': 'A yoga pose that stretches the hips and glutes.'
 }
 
+# Validation lists
+VALID_INJURY_TERMS = ["sprain", "strain", "pain", "stiffness", "injury", "tear", "dislocation", 
+                      "arthritis", "sciatica", "tendinitis", "surgery", "replacement"]
+VALID_BODY_PARTS = ["back", "neck", "shoulder", "elbow", "wrist", "hip", "knee", "ankle", 
+                    "leg", "arm", "chest", "foot", "hand"]
+
 @app.route('/api/suggest-exercises', methods=['POST'])
 def suggest_exercises():
     try:
         data = request.json
-        print("Received data:", data)  # Log incoming data
+        print("Received data:", data)
         if not data or 'message' not in data or 'user_id' not in data:
             return jsonify({"error": "Invalid input"}), 400
 
         user_message = data['message']
-        injury_type = data.get('injuryType', '')
+        injury_type = data.get('injuryType', '').lower().strip()
         duration = data.get('duration', '')
         severity = data.get('severity', '')
+
+        # Validate injuryType if provided
+        if injury_type:
+            injury_words = injury_type.split()
+            has_injury_term = any(term in injury_type for term in VALID_INJURY_TERMS)
+            has_body_part = any(part in injury_type for part in VALID_BODY_PARTS)
+            
+            # Require both an injury term AND a body part for validity
+            if not (has_injury_term and has_body_part):
+                return jsonify({
+                    "error": "I am not capable of providing output if the injury detail is not related to this platform."
+                }), 400
 
         # Prepare the prompt for Gemini
         prompt = (
@@ -75,13 +93,14 @@ def suggest_exercises():
             "Please list the exercises along with their descriptions in the format: "
             "'exercise name': 'description'. "
             "Do not include any additional text or explanations."
+            "if the exercise library is not suitable for the user, please provide a message to inform the user."
         )
-        print("Generated prompt:", prompt)  # Log the prompt
+        print("Generated prompt:", prompt)
 
         # Call the Gemini API
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel('gemini-2.0-flash')
         response = model.generate_content(prompt)
-        print("Gemini API response:", response.text)  # Log the response
+        print("Gemini API response:", response.text)
 
         # Extract the recommended exercises
         recommended_exercises = []
@@ -98,9 +117,8 @@ def suggest_exercises():
         })
 
     except Exception as e:
-        print(f"Error: {str(e)}")  # Log the full error
+        print(f"Error: {str(e)}")
         return jsonify({"error": "An unexpected error occurred."}), 500
 
-# Run the app
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000, debug=False)

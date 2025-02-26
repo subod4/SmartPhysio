@@ -13,6 +13,7 @@ const Chat = () => {
     const [exercises, setExercises] = useState([]);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [error, setError] = useState(null); // New state for error handling
     const navigate = useNavigate();
 
     const steps = [
@@ -28,6 +29,7 @@ const Chat = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
+        setError(null); // Clear any previous errors
 
         try {
             const response = await fetch('http://localhost:5000/api/suggest-exercises', {
@@ -46,14 +48,17 @@ const Chat = () => {
             });
 
             if (!response.ok) {
-                throw new Error('Failed to fetch recommendations');
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to fetch recommendations');
             }
 
             const data = await response.json();
             setExercises(data.exercises);
         } catch (error) {
             console.error('Error:', error);
-            alert('Failed to fetch recommendations. Please try again.');
+            setError(error.message === 'Failed to fetch recommendations' 
+                ? 'Sorry, I am not capable of this currently.' 
+                : error.message);
         } finally {
             setLoading(false);
         }
@@ -85,7 +90,7 @@ const Chat = () => {
             navigate('/dashboard');
         } catch (error) {
             console.error('Save Error:', error);
-            alert('Failed to save recommendation. Please try again.');
+            setError('Sorry, I am not capable of saving this currently.');
         } finally {
             setSaving(false);
         }
@@ -186,7 +191,7 @@ const Chat = () => {
 
                 {/* Main Content */}
                 <div className="p-6">
-                    {!exercises.length ? (
+                    {!exercises.length && !error ? (
                         <form onSubmit={handleSubmit}>
                             <motion.div
                                 key={currentStep}
@@ -228,7 +233,7 @@ const Chat = () => {
                                 </div>
                             </motion.div>
                         </form>
-                    ) : (
+                    ) : exercises.length ? (
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -303,6 +308,26 @@ const Chat = () => {
                                     Try Again
                                 </button>
                             </div>
+                        </motion.div>
+                    ) : (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="text-center p-8"
+                        >
+                            <div className="text-red-500 text-4xl mb-4">❌</div>
+                            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
+                                Oops, something went wrong!
+                            </h2>
+                            <p className="text-gray-600 dark:text-gray-400 mb-6">
+                                {error}
+                            </p>
+                            <button
+                                onClick={() => setError(null)} // Reset error to go back to form
+                                className="px-6 py-2 bg-[#6C9BCF] hover:bg-[#5a8ab5] text-white rounded-lg transition-colors"
+                            >
+                                Try Again
+                            </button>
                         </motion.div>
                     )}
 
