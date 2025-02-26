@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
@@ -13,8 +13,21 @@ const Chat = () => {
     const [exercises, setExercises] = useState([]);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [error, setError] = useState(null); // New state for error handling
+    const [error, setError] = useState(null);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
     const navigate = useNavigate();
+
+    useEffect(() => {
+        const checkAuth = () => {
+            const token = localStorage.getItem('jwtToken');
+            if (!token) {
+                navigate('/signin');
+            } else {
+                setIsAuthenticated(true);
+            }
+        };
+        checkAuth();
+    }, [navigate]);
 
     const steps = [
         { icon: '🤕', label: "What's your injury?" },
@@ -29,18 +42,21 @@ const Chat = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
-        setError(null); // Clear any previous errors
+        setError(null);
 
         try {
+            const token = localStorage.getItem('jwtToken');
+
+            // Fetch exercise suggestions from Flask API (port 5000)
             const response = await fetch('http://localhost:5000/api/suggest-exercises', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
                     message: formData.details,
-                    user_id: '123', // Replace with actual user ID from auth system
+                    user_id: token, // Adjust if Flask expects a decoded user ID
                     injuryType: formData.injuryType,
                     duration: formData.duration,
                     severity: formData.severity
@@ -54,43 +70,63 @@ const Chat = () => {
 
             const data = await response.json();
             setExercises(data.exercises);
+
+            // Save recommendation to Express API (port 8000)
+            setSaving(true);
+            const saveResponse = await fetch('http://localhost:8000/api/recommendations/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    userId: token, // Adjust if Express expects a decoded user ID
+                    injuryType: formData.injuryType,
+                    duration: formData.duration,
+                    severity: formData.severity,
+                    details: formData.details,
+                    exercises: data.exercises,
+                    acceptanceDate: new Date().toISOString()
+                }),
+            });
+
+            if (!saveResponse.ok) {
+                const errorData = await saveResponse.json();
+                throw new Error(errorData.message || 'Failed to save recommendation');
+            }
+
+            const saveResult = await saveResponse.json();
+            console.log('Recommendation saved:', saveResult);
+
         } catch (error) {
             console.error('Error:', error);
             setError(error.message === 'Failed to fetch recommendations' 
                 ? 'Sorry, I am not capable of this currently.' 
+                : error.message === 'Failed to save recommendation'
+                ? 'Sorry, I couldn’t save your recommendation.'
                 : error.message);
         } finally {
             setLoading(false);
+            setSaving(false);
         }
     };
 
     const handleAccept = async () => {
         setSaving(true);
         try {
-            const response = await fetch('http://localhost:5000/api/recommendations/save', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
-                },
-                body: JSON.stringify({
-                    user_id: '123', // Replace with actual user ID
-                    injuryDetails: formData,
-                    exercises: exercises,
-                    acceptanceDate: new Date().toISOString()
-                }),
+            console.log('Recommendation accepted:', {
+                userId: localStorage.getItem('jwtToken'),
+                injuryType: formData.injuryType,
+                duration: formData.duration,
+                severity: formData.severity,
+                details: formData.details,
+                exercises: exercises,
+                acceptanceDate: new Date().toISOString()
             });
-
-            if (!response.ok) {
-                throw new Error('Failed to save recommendation');
-            }
-
-            const result = await response.json();
-            console.log('Recommendation saved:', result);
             navigate('/dashboard');
         } catch (error) {
-            console.error('Save Error:', error);
-            setError('Sorry, I am not capable of saving this currently.');
+            console.error('Accept Error:', error);
+            setError('Sorry, there was an error processing your acceptance.');
         } finally {
             setSaving(false);
         }
@@ -149,6 +185,10 @@ const Chat = () => {
         }
     };
 
+    if (!isAuthenticated) {
+        return null;
+    }
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-[#6C9BCF] to-[#F4F4F4] dark:from-[#2E4F4F] dark:to-[#1A1A1A] p-4 sm:p-8">
             <motion.div
@@ -156,7 +196,6 @@ const Chat = () => {
                 animate={{ opacity: 1, y: 0 }}
                 className="max-w-3xl mx-auto bg-white dark:bg-neutral-800 rounded-2xl shadow-xl overflow-hidden mt-20 mb-8"
             >
-                {/* Header */}
                 <div className="p-6 bg-gradient-to-r from-[#FF6F61] to-[#FFD166]">
                     <div className="flex items-center gap-4">
                         <motion.div
@@ -172,7 +211,6 @@ const Chat = () => {
                     </div>
                 </div>
 
-                {/* Progress Steps */}
                 <div className="p-4 border-b border-gray-200 dark:border-neutral-700">
                     <div className="flex justify-between items-center">
                         {steps.map((step, index) => (
@@ -189,7 +227,6 @@ const Chat = () => {
                     </div>
                 </div>
 
-                {/* Main Content */}
                 <div className="p-6">
                     {!exercises.length && !error ? (
                         <form onSubmit={handleSubmit}>
@@ -202,9 +239,7 @@ const Chat = () => {
                                 <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
                                     {steps[currentStep - 1].label}
                                 </h2>
-
                                 {getStepContent(currentStep)}
-
                                 <div className="flex justify-between">
                                     <button
                                         type="button"
@@ -252,7 +287,6 @@ const Chat = () => {
                                     </span>
                                 </div>
                             </div>
-
                             <div className="grid gap-4 md:grid-cols-2">
                                 {exercises.map((exercise, index) => (
                                     <div
@@ -272,16 +306,15 @@ const Chat = () => {
                                         </p>
                                         <div className="mt-3 flex gap-2">
                                             <span className="px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded-full">
-                                                Rehab
+                                                {exercise.duration || 'N/A'}
                                             </span>
                                             <span className="px-2 py-1 bg-purple-100 text-purple-800 text-sm rounded-full">
-                                                2-4 weeks
+                                                {exercise.frequency || 'N/A'}
                                             </span>
                                         </div>
                                     </div>
                                 ))}
                             </div>
-
                             <div className="mt-6 grid gap-4 sm:grid-cols-2">
                                 <button
                                     onClick={handleAccept}
@@ -323,14 +356,13 @@ const Chat = () => {
                                 {error}
                             </p>
                             <button
-                                onClick={() => setError(null)} // Reset error to go back to form
+                                onClick={() => setError(null)}
                                 className="px-6 py-2 bg-[#6C9BCF] hover:bg-[#5a8ab5] text-white rounded-lg transition-colors"
                             >
                                 Try Again
                             </button>
                         </motion.div>
                     )}
-
                     {loading && (
                         <motion.div
                             initial={{ opacity: 0 }}

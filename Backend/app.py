@@ -54,9 +54,10 @@ exercise_details = {
 
 # Validation lists
 VALID_INJURY_TERMS = ["sprain", "strain", "pain", "stiffness", "injury", "tear", "dislocation", 
-                      "arthritis", "sciatica", "tendinitis", "surgery", "replacement"]
+                      "arthritis", "sciatica", "tendinitis", "surgery", "replacement", "fracture", 
+                      "bruise", "spasm", "inflammation", "bursitis", "tendonitis"]
 VALID_BODY_PARTS = ["back", "neck", "shoulder", "elbow", "wrist", "hip", "knee", "ankle", 
-                    "leg", "arm", "chest", "foot", "hand"]
+                    "leg", "arm", "chest", "foot", "hand", "spine", "calf", "thigh", "groin"]
 
 @app.route('/api/suggest-exercises', methods=['POST'])
 def suggest_exercises():

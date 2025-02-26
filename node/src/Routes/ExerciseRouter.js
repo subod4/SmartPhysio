@@ -15,7 +15,6 @@ router.get('/sessions', authMiddleware, async (req, res) => {
       count: sessions.length,
       data: sessions
     });
-
   } catch (error) {
     console.error('Error fetching sessions:', error);
     res.status(500).json({
@@ -39,11 +38,38 @@ router.post('/session', authMiddleware, async (req, res) => {
       success: true,
       data: session
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
       error: 'Failed to save session'
+    });
+  }
+});
+
+// DELETE exercise session by ID
+router.delete('/sessions/:id', authMiddleware, async (req, res) => {
+  try {
+    const sessionId = req.params.id;
+    const session = await ExerciseSession.findOne({ _id: sessionId, userId: req.user._id });
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Exercise session not found or not authorized'
+      });
+    }
+
+    await ExerciseSession.deleteOne({ _id: sessionId });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Exercise session deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting session:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete session'
     });
   }
 });
